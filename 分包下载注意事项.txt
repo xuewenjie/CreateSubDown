@@ -1,0 +1,49 @@
+1.打包需要把【大厅公共部分更新文件】和【游戏更新文件】（打进APP内的游戏）放入assets\resources\update_version
+【大厅公共部分更新文件】为：
+resources_project.manifest
+resources_version.manifest
+game_version.manifest
+【游戏更新文件】为：
+例：
+2_hzmj_res_project.manifest
+2_hzmj_snd_project.manifest
+3_tzmj_res_project.manifest
+3_tzmj_snd_project.manifest
+等
+
+2.有文件的更新文件脚本运行相关
+#///////以下是生成所有文件的更新文件
+#先编辑一次脚本，把需要生成更新文件的资源编译出来
+/Applications/CocosCreator/Creator/2.4.3/CocosCreator.app/Contents/MacOS/CocosCreator --path ~/Documents/NewHidogGame/Proj --build "platform=android;debug=true;encryptJs=false;md5Cache=false" 
+
+#把预设的版本号文件拷贝到对应位置
+cp -r -f /Users/xue/Documents/NewHidogGame/Doc/hot_update_version/game_version_project.manifest /Users/xue/Documents/NewHidogGame/Proj/build/jsb-link/assetsPack/game_version_project.manifest
+
+#生成对应的更新文件，*如果没有上一步的预设文件，那么所有的资源文件版本都是1.0.0
+cd ~/Documents/NewHidogGame/Proj/
+/usr/local/bin/node version_generator.js -buildType 0 -s build/jsb-link/ -d build/jsb-link/assetsPack -u http://192.168.2.103:8080/job/NewHidog_Android/ws/assetsPack/
+
+#拷贝生成的资源原件到特定目录并压缩提供下载（配合JENKINS）
+rm -r -f /Users/xue/.jenkins/workspace/NewHidog_Android/assetsPack
+cp -r -f /Users/xue/Documents/NewHidogGame/Proj/build/jsb-link/assetsPack /Users/xue/.jenkins/workspace/NewHidog_Android/assetsPack
+cd /Users/xue/.jenkins/workspace/NewHidog_Android
+/usr/bin/python zip_assetsPack.py
+
+3.生成apk脚本相关
+#//////以下是打包部分文件到APK包内的操作
+#先编辑一次脚本，把需要生成更新文件的资源编译出来
+/Applications/CocosCreator/Creator/2.4.3/CocosCreator.app/Contents/MacOS/CocosCreator --path ~/Documents/NewHidogGame/Proj --build "platform=android;debug=true;encryptJs=false;md5Cache=false" 
+
+#生成对应的更新文件，*如果没有上一步的预设文件，那么所有的资源文件版本都是1.0.0，该步骤不去除掉一些不用打进包的资源以及会在原始目录下放置预设的更新文件
+cd ~/Documents/NewHidogGame/Proj/
+/usr/local/bin/node app_generator.js -s build/jsb-link/assets/ -sc build/jsb-link/assetsPack  -d assets/resources/update_version
+
+#再编辑一次脚本，这次因为预设的更新文件都在包体里了，所以等于更新了一次resources这个文件夹
+/Applications/CocosCreator/Creator/2.4.3/CocosCreator.app/Contents/MacOS/CocosCreator --path ~/Documents/NewHidogGame/Proj --build "platform=android;debug=true;encryptJs=false;md5Cache=false" 
+
+#再执行一次生成对应的更新文件
+/usr/local/bin/node app_generator.js -s build/jsb-link/assets/ -sc build/jsb-link/assetsPack  -d assets/resources/update_version
+
+#打包APK
+/Applications/CocosCreator/Creator/2.4.3/CocosCreator.app/Contents/MacOS/CocosCreator --path ~/Documents/NewHidogGame/Proj --compile "platform=android;debug=true;apiLevel=android-28"
+cp /Users/xue/Documents/NewHidogGame/Proj/build/jsb-link/simulator/android/Proj-debug.apk /Users/xue/.jenkins/workspace/NewHidog_Android/NewHiDog.apk
